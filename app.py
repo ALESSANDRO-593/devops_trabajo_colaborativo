@@ -119,7 +119,7 @@ def crear_tarea():
 
     cur.execute(
         "INSERT INTO tareas (nombre) VALUES (%s);",
-        (nombre,)
+        (nombre.upper(),)
     )
 
     # Guardar cambios
