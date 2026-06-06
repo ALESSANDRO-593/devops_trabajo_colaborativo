@@ -71,86 +71,60 @@ def home():
     return render_template("index.html", tareas=tareas)
 
 
+def obtener_nombre_tarea():
+    if request.is_json:
+        datos = request.get_json(silent=True) or {}
+        return datos.get("nombre")
+
+    return request.form.get("nombre")
+
+
+def obtener_tareas():
+    with conn.cursor() as cur:
+        cur.execute("SELECT id, nombre FROM tareas;")
+        return [{"id": row[0], "nombre": row[1]} for row in cur.fetchall()]
+
+
+def render_index(error=None, mensaje=None):
+    return render_template(
+        "index.html",
+        tareas=obtener_tareas(),
+        error=error,
+        mensaje=mensaje
+    )
+
+
+def respuesta_error_nombre_vacio():
+    if request.form.get("nombre"):
+        return render_index(error="El nombre de la tarea no puede estar vacío")
+
+    return jsonify({"error": "El nombre de la tarea no puede estar vacío"}), 400
+
+
 # ==============================
 # CREAR TAREA
 # ==============================
 
 @app.route("/tareas", methods=["POST"])
 def crear_tarea():
+    nombre = obtener_nombre_tarea()
 
-    # Obtener nombre desde formulario o JSON
-    nombre = request.form.get("nombre") or (
-        request.json.get("nombre") if request.json else None
-    )
+    if not nombre or not nombre.strip():
+        return respuesta_error_nombre_vacio()
 
-    # Validar que no esté vacío
-    if not nombre or nombre.strip() == "":
+    nombre = nombre.strip()
 
-        # Si viene desde formulario HTML
-        if request.form.get("nombre"):
-
-            cur = conn.cursor()
-
-            # Obtener tareas actuales
-            cur.execute("SELECT id, nombre FROM tareas;")
-
-            tareas = [
-                {"id": row[0], "nombre": row[1]}
-                for row in cur.fetchall()
-            ]
-
-            cur.close()
-
-            # Mostrar error en pantalla
-            return render_template(
-                "index.html",
-                tareas=tareas,
-                error="El nombre de la tarea no puede estar vacío"
-            )
-
-        # Error en formato JSON
-        return jsonify({
-            "error": "El nombre de la tarea no puede estar vacío"
-        }), 400
-
-
-    # Insertar nueva tarea en PostgreSQL
-    cur = conn.cursor()
-
-    cur.execute(
-        "INSERT INTO tareas (nombre) VALUES (%s);",
-        (nombre.upper(),)
-    )
-
-    # Guardar cambios
-    conn.commit()
-
-    # Cerrar cursor
-    cur.close()
-
-
-    # Si viene desde formulario HTML
-    if request.form.get("nombre"):
-
-        cur = conn.cursor()
-
-        cur.execute("SELECT id, nombre FROM tareas;")
-
-        tareas = [
-            {"id": row[0], "nombre": row[1]}
-            for row in cur.fetchall()
-        ]
-
-        cur.close()
-
-        # Mostrar mensaje de éxito
-        return render_template(
-            "index.html",
-            tareas=tareas,
-            mensaje="Tarea agregada correctamente"
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO tareas (nombre) VALUES (%s);",
+            (nombre.upper(),)
         )
 
-    # Respuesta JSON
+    conn.commit()
+
+    if request.form.get("nombre"):
+        return render_index(mensaje="Tarea agregada correctamente")
+
     return jsonify({"mensaje": "Tarea creada"}), 201
 
 
