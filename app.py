@@ -117,7 +117,7 @@ def crear_tarea():
     with conn.cursor() as cur:
         cur.execute(
             "INSERT INTO tareas (nombre) VALUES (%s);",
-            (nombre.upper(),)
+            (nombre,)
         )
 
     conn.commit()
